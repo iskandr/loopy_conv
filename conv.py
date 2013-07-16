@@ -29,6 +29,12 @@ queue = cl.CommandQueue(ctx)
 #img = cl.clrandom.rand(queue, (1024, 1024, 3), dtype=np.float32)
 #f = cl.clrandom.rand(queue, (7, 7, 3, 17), dtype=np.float32)
 
+f_w = 2
+nimg = 32  #128 
+im_w, im_h = 32,32 #224, 224 
+n_input_channels = 3
+n_output_channels = 10 #96
+
 # create multiple 2D kernel
 # ------
 knl = lp.make_kernel(ctx.devices[0],
@@ -44,7 +50,11 @@ knl = lp.make_kernel(ctx.devices[0],
         "..."
         ],
         
-        defines=dict(ncolors="3", nfeature_maps="17", im_w=32, im_h=32, nimg=32,f_w=3))
+        defines=dict(ncolors=n_input_channels, 
+                     nfeature_maps=n_output_channels, 
+                     im_w=im_w, im_h=im_h, 
+                     nimg=nimg,
+                     f_w=f_w))
 
 ref_knl = knl
 
@@ -57,20 +67,16 @@ lp.split_reduction_outward(knl, "color")
 knl = lp.set_loop_priority(knl, [
                                  "im_x_outer", 
                                  "im_y_outer",
-                                 "n",
-                                 "feat",
                                  "im_x_inner",
                                  "im_y_inner", 
-                                 "f_x_outer",
-                                 "f_y_outer",
-                                 "f_x_inner",
-                                 "f_y_inner"])
+                                 "n",
+                                 "feat",
+                                 "f_x",
+                                 "f_y"])
 
 ## Split loop into innner/outer. 2nd arg is size of inner loop
 knl = lp.split_iname(knl, "im_x", 16)
 knl = lp.split_iname(knl, "im_y", 16)
-knl = lp.split_iname(knl, "f_x", 7)
-knl = lp.split_iname(knl, "f_y", 7)
 #knl = lp.split_iname(knl, "color", 3)
 
 
@@ -79,9 +85,10 @@ knl = lp.tag_inames(knl, dict(im_x_inner="l.0",
                               im_x_outer="g.0", 
                               im_y_inner="l.1", 
                               im_y_outer="g.1",
-                              feat = "unr", 
-                              f_x_inner = "unr",
-                              f_y_inner = "unr",
+                              #feat = "unr", 
+                              f_x = "unr",
+                              f_y = "unr",
+                              color = "unr"
                               ))
 
 
